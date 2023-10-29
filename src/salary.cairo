@@ -55,7 +55,7 @@ trait ISalaryDistributor<TContractState> {
     fn master(self: @TContractState) -> ContractAddress;
     fn get_cum_salary(self: @TContractState, contributor: ContractAddress) -> u256;
     fn get_claimed_salary(self: @TContractState, contributor: ContractAddress) -> u256;
-    fn get_cum_salarys(self: @TContractState, contributor: ContractAddress);
+    // fn get_cum_salarys(self: @TContractState, contributor: ContractAddress);
 
 
     // external functions
@@ -109,8 +109,28 @@ mod SalaryDistributor {
         // _queued_migrations: LegacyMap::<felt252, bool>, // @dev flag to store queued migration requests.
     }
 
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    enum Event {
+        SalaryPoolUpdated: SalaryPoolUpdated,
+        SalaryClaimed: SalaryClaimed,
+    }
 
-        //
+    // @notice An event emitted whenever funds are added to salary pool.
+    #[derive(Drop, starknet::Event)]
+    struct SalaryPoolUpdated {
+        month_id: u32, 
+        guild: felt252,
+        pool_amount: u256
+    }
+
+    // @notice An event emitted whenever contribution claims salary
+    #[derive(Drop, starknet::Event)]
+    struct SalaryClaimed {
+        amount: u256,
+        recipient: ContractAddress
+    }
+    //
     // Constructor
     //
 
@@ -146,13 +166,13 @@ mod SalaryDistributor {
             self._salary.read(contributor).claimed_salary
         }
         // for debugging will remove after review
-        fn get_cum_salarys(self: @ContractState, contributor: ContractAddress){
-            InternalImpl::get_guild_cum_salarys(self, contributor, 'dev');
-            InternalImpl::get_guild_cum_salarys(self, contributor, 'design');
-            InternalImpl::get_guild_cum_salarys(self, contributor, 'problem_solving');
-            InternalImpl::get_guild_cum_salarys(self, contributor, 'marcom');
-            InternalImpl::get_guild_cum_salarys(self, contributor, 'research');
-        }
+        // fn get_cum_salarys(self: @ContractState, contributor: ContractAddress){
+        //     InternalImpl::get_guild_cum_salarys(self, contributor, 'dev');
+        //     InternalImpl::get_guild_cum_salarys(self, contributor, 'design');
+        //     InternalImpl::get_guild_cum_salarys(self, contributor, 'problem_solving');
+        //     InternalImpl::get_guild_cum_salarys(self, contributor, 'marcom');
+        //     InternalImpl::get_guild_cum_salarys(self, contributor, 'research');
+        // }
 
         //
         // Setters
@@ -174,9 +194,8 @@ mod SalaryDistributor {
                 amount_to_transfer += *amounts[current_index];
                 self._salary_pool.write((month_id, *guilds[current_index]), *amounts[current_index]);
 
-                 // TODO:: emit pool fund updated
-
-                 current_index += 1;
+                self.emit(SalaryPoolUpdated{month_id: month_id, guild: *guilds[current_index], pool_amount: *amounts[current_index]});
+                current_index += 1;
             };
             let token = self._token.read();
             let tokenDispatcher = IERC20Dispatcher { contract_address: token };
@@ -209,6 +228,7 @@ mod SalaryDistributor {
             // update claimed salary
             self._salary.write(contributor, Salary{cum_salary: salary.cum_salary, claimed_salary: salary.claimed_salary + claimable_amount});
             tokenDispatcher.transfer(recipient, claimable_amount);
+            self.emit(SalaryClaimed{amount: claimable_amount, recipient: recipient});
 
         }
 
@@ -256,35 +276,35 @@ mod SalaryDistributor {
         }
 
         // for debugging will remove after review
-        fn get_guild_cum_salarys(self: @ContractState, contributor: ContractAddress, guild: felt252){
-            let master = self._master.read();
-            let masterDispatcher = IMasterDispatcher { contract_address: master };
-            let contribution_data = masterDispatcher.get_contributions_data(contributor, guild);
+        // fn get_guild_cum_salarys(self: @ContractState, contributor: ContractAddress, guild: felt252){
+        //     let master = self._master.read();
+        //     let masterDispatcher = IMasterDispatcher { contract_address: master };
+        //     let contribution_data = masterDispatcher.get_contributions_data(contributor, guild);
 
-            let mut cum_salary = 0_u256;
-            let mut cum_salarys: Array<felt252> = ArrayTrait::new();
+        //     let mut cum_salary = 0_u256;
+        //     let mut cum_salarys: Array<felt252> = ArrayTrait::new();
 
-            let mut current_index = 0_u32;
-            loop {
-                if (current_index == contribution_data.len()) {
-                    break;
-                }
+        //     let mut current_index = 0_u32;
+        //     loop {
+        //         if (current_index == contribution_data.len()) {
+        //             break;
+        //         }
 
-                let pool_amount = self._salary_pool.read((*contribution_data[current_index], guild));
-                let total_contribution: u256 = masterDispatcher.get_guild_total_contribution(*contribution_data[current_index], guild).into();
-                let contributor_point_earned: u256 = (*contribution_data[current_index + 1]).into();
-                cum_salary += (pool_amount * contributor_point_earned) / total_contribution;
-                cum_salarys.append(((pool_amount * contributor_point_earned) / total_contribution).try_into().unwrap());
-                cum_salarys.append((pool_amount).try_into().unwrap());
-                cum_salarys.append((total_contribution).try_into().unwrap());
-                cum_salarys.append((contributor_point_earned).try_into().unwrap());
-                current_index += 2;
+        //         let pool_amount = self._salary_pool.read((*contribution_data[current_index], guild));
+        //         let total_contribution: u256 = masterDispatcher.get_guild_total_contribution(*contribution_data[current_index], guild).into();
+        //         let contributor_point_earned: u256 = (*contribution_data[current_index + 1]).into();
+        //         cum_salary += (pool_amount * contributor_point_earned) / total_contribution;
+        //         cum_salarys.append(((pool_amount * contributor_point_earned) / total_contribution).try_into().unwrap());
+        //         cum_salarys.append((pool_amount).try_into().unwrap());
+        //         cum_salarys.append((total_contribution).try_into().unwrap());
+        //         cum_salarys.append((contributor_point_earned).try_into().unwrap());
+        //         current_index += 2;
 
-            };
-            cum_salarys.len().print();
-            cum_salarys.clone().print();
+        //     };
+        //     cum_salarys.len().print();
+        //     cum_salarys.clone().print();
             
-        }
+        // }
 
 
     }
