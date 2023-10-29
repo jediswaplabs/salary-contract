@@ -84,7 +84,7 @@ fn deploy_contracts(usdc: ContractAddress) -> (ContractAddress, ContractAddress)
     (master_address, salary_address)
 }
 
-fn update_contributions(master_address: ContractAddress) -> (MonthlyContribution, MonthlyContribution, MonthlyContribution, MonthlyContribution) {
+fn update_contributions(master_address: ContractAddress) {
     let master_dispatcher = IMasterDispatcher { contract_address: master_address };
 
     let user1_contribution_sept = MonthlyContribution{ contributor: user1(), dev: 120, design: 250, problem_solving: 30, marcom: 20, research: 10};
@@ -113,7 +113,185 @@ fn update_contributions(master_address: ContractAddress) -> (MonthlyContribution
     master_dispatcher.update_contibutions(102023, contributions);
     stop_prank(master_address);
 
-    (user1_contribution_sept, user2_contribution_sept, user1_contribution_oct, user2_contribution_oct)
+    
+}
+
+#[test]
+fn test_add_fund() { 
+    let initial_supply: u256 = 1000 * TOKEN_MULTIPLIER;
+    let usdc = deploy_mockUSDC(initial_supply);
+    let (master_address, salary_address) = deploy_contracts(usdc);
+
+    let salary_dispatcher = ISalaryDispatcher { contract_address: salary_address };
+    let usdc_dispatcher = IERC20Dispatcher { contract_address: usdc };
+
+    let mut guilds: Array<felt252> = ArrayTrait::new();
+    guilds.append('dev');
+    guilds.append('design');
+    guilds.append('problem_solving');
+    guilds.append('marcom');
+    guilds.append('research');
+
+    let mut amounts: Array<u256> = ArrayTrait::new();
+    amounts.append(10 * TOKEN_MULTIPLIER);
+    amounts.append(20 * TOKEN_MULTIPLIER);
+    amounts.append(30 * TOKEN_MULTIPLIER);
+    amounts.append(40 * TOKEN_MULTIPLIER);
+    amounts.append(50 * TOKEN_MULTIPLIER);
+
+    start_prank(usdc, deployer_addr());
+    usdc_dispatcher.approve(salary_address, 150 * TOKEN_MULTIPLIER);
+    stop_prank(usdc);
+
+    let month_id = 092023;
+
+    let mut spy = spy_events(SpyOn::One(salary_address));
+    start_prank(salary_address, deployer_addr());
+    salary_dispatcher.add_fund_to_salary_pools(month_id, amounts, guilds);
+    stop_prank(salary_address);
+
+    // verifying balance of contract 
+    let contract_balance = usdc_dispatcher.balance_of(salary_address);
+    assert(contract_balance == 150 * TOKEN_MULTIPLIER, 'incorrect balance');
+
+    // defining variables to check in events emitted
+    let dev_guild = 'dev';
+    let dev_fund = 10 * TOKEN_MULTIPLIER;
+    let design_guild = 'design';
+    let design_fund = 20 * TOKEN_MULTIPLIER;
+    let problem_solving_guild = 'problem_solving';
+    let problem_solving_fund = 30 * TOKEN_MULTIPLIER;
+    let marcom_guild = 'marcom';
+    let marcom_fund = 40 * TOKEN_MULTIPLIER;
+    let research_guild = 'research';
+    let research_fund = 50 * TOKEN_MULTIPLIER;
+
+    let mut event_data_dev = Default::default();
+    Serde::serialize(@month_id, ref event_data_dev);
+    Serde::serialize(@dev_guild, ref event_data_dev);
+    Serde::serialize(@dev_fund, ref event_data_dev);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_dev }
+    ]);
+
+    let mut event_data_design = Default::default();
+    Serde::serialize(@month_id, ref event_data_design);
+    Serde::serialize(@design_guild, ref event_data_design);
+    Serde::serialize(@design_fund, ref event_data_design);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_design }
+    ]);
+
+    let mut event_data_problem_solving = Default::default();
+    Serde::serialize(@month_id, ref event_data_problem_solving);
+    Serde::serialize(@problem_solving_guild, ref event_data_problem_solving);
+    Serde::serialize(@problem_solving_fund, ref event_data_problem_solving);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_problem_solving }
+    ]);
+
+    let mut event_data_marcom = Default::default();
+    Serde::serialize(@month_id, ref event_data_marcom);
+    Serde::serialize(@marcom_guild, ref event_data_marcom);
+    Serde::serialize(@marcom_fund, ref event_data_marcom);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_marcom }
+    ]);
+
+    let mut event_data_research = Default::default();
+    Serde::serialize(@month_id, ref event_data_research);
+    Serde::serialize(@research_guild, ref event_data_research);
+    Serde::serialize(@research_fund, ref event_data_research);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_research }
+    ]);
+
+}
+
+#[test]
+fn test_add_fund_same_month_new_guild() { 
+    let initial_supply: u256 = 1000 * TOKEN_MULTIPLIER;
+    let usdc = deploy_mockUSDC(initial_supply);
+    let (master_address, salary_address) = deploy_contracts(usdc);
+
+    let salary_dispatcher = ISalaryDispatcher { contract_address: salary_address };
+    let usdc_dispatcher = IERC20Dispatcher { contract_address: usdc };
+
+    let mut guilds: Array<felt252> = ArrayTrait::new();
+    guilds.append('dev');
+    guilds.append('design');
+    guilds.append('problem_solving');
+    guilds.append('marcom');
+
+    let mut amounts1: Array<u256> = ArrayTrait::new();
+    amounts1.append(10 * TOKEN_MULTIPLIER);
+    amounts1.append(20 * TOKEN_MULTIPLIER);
+    amounts1.append(30 * TOKEN_MULTIPLIER);
+    amounts1.append(40 * TOKEN_MULTIPLIER);
+
+
+    let mut guilds2: Array<felt252> = ArrayTrait::new();
+    guilds2.append('research');
+
+    let mut amounts2: Array<u256> = ArrayTrait::new();
+    amounts2.append(50 * TOKEN_MULTIPLIER);
+
+    start_prank(usdc, deployer_addr());
+    usdc_dispatcher.approve(salary_address, 150 * TOKEN_MULTIPLIER);
+    stop_prank(usdc);
+
+    let month_id = 092023;
+    start_prank(salary_address, deployer_addr());
+    salary_dispatcher.add_fund_to_salary_pools(month_id, amounts1, guilds);
+    salary_dispatcher.add_fund_to_salary_pools(month_id, amounts2, guilds2);
+    stop_prank(salary_address);
+
+}
+
+#[test]
+fn test_add_fund_again_should_revert() { 
+    let initial_supply: u256 = 1000 * TOKEN_MULTIPLIER;
+    let usdc = deploy_mockUSDC(initial_supply);
+    let (master_address, salary_address) = deploy_contracts(usdc);
+
+    let safe_salary_dispatcher = ISalarySafeDispatcher { contract_address: salary_address };
+    let usdc_dispatcher = IERC20Dispatcher { contract_address: usdc };
+
+    let mut guilds: Array<felt252> = ArrayTrait::new();
+    guilds.append('dev');
+    guilds.append('design');
+    guilds.append('problem_solving');
+    guilds.append('marcom');
+    guilds.append('research');
+
+    let mut amounts1: Array<u256> = ArrayTrait::new();
+    amounts1.append(10 * TOKEN_MULTIPLIER);
+    amounts1.append(20 * TOKEN_MULTIPLIER);
+    amounts1.append(30 * TOKEN_MULTIPLIER);
+    amounts1.append(40 * TOKEN_MULTIPLIER);
+    amounts1.append(50 * TOKEN_MULTIPLIER);
+
+    let mut guilds2: Array<felt252> = ArrayTrait::new();
+    guilds2.append('research');
+
+    let mut amounts2: Array<u256> = ArrayTrait::new();
+    amounts2.append(40 * TOKEN_MULTIPLIER);
+
+    start_prank(usdc, deployer_addr());
+    usdc_dispatcher.approve(salary_address, 200 * TOKEN_MULTIPLIER);
+    stop_prank(usdc);
+
+    let month_id = 092023;
+    start_prank(salary_address, deployer_addr());
+    safe_salary_dispatcher.add_fund_to_salary_pools(month_id, amounts1, guilds);
+    match safe_salary_dispatcher.add_fund_to_salary_pools(month_id, amounts2, guilds2) {
+        Result::Ok(_) => panic_with_felt252('shouldve panicked'),
+        Result::Err(panic_data) => {
+            assert(*panic_data.at(0) == 'ALREADY_SET', *panic_data.at(0));
+        }
+    };
+    stop_prank(salary_address);
+
 }
 
 #[test]
@@ -121,7 +299,7 @@ fn test_add_fund_and_claim() {
     let initial_supply: u256 = 1000 * TOKEN_MULTIPLIER;
     let usdc = deploy_mockUSDC(initial_supply);
     let (master_address, salary_address) = deploy_contracts(usdc);
-    let (user1_contribution_sept, user2_contribution_sept, user1_contribution_oct, user2_contribution_oct) = update_contributions(master_address);
+    update_contributions(master_address);
 
     let master_dispatcher = IMasterDispatcher { contract_address: master_address };
     let salary_dispatcher = ISalaryDispatcher { contract_address: salary_address };
@@ -160,6 +338,7 @@ fn test_add_fund_and_claim() {
     salary_dispatcher.add_fund_to_salary_pools(102023, amounts2, guilds.clone());
     stop_prank(salary_address);
 
+
     // verifying balance of contract 
     let contract_balance = usdc_dispatcher.balance_of(salary_address);
     assert(contract_balance == 300 * TOKEN_MULTIPLIER, 'incorrect balance');
@@ -176,8 +355,6 @@ fn test_add_fund_and_claim() {
                                     (100 * 40 * TOKEN_MULTIPLIER / 120) + (50 * 20 * TOKEN_MULTIPLIER / 50) +
                                     (70 * 50 * TOKEN_MULTIPLIER / 80) + (90 * 10 * TOKEN_MULTIPLIER / 125);
     
-
-
     
     let user1_cum_salary = salary_dispatcher.get_cum_salary(user1());
     assert(user1_cum_salary == user1_expected_cum_salary,'incorrect user1 cum salary');
@@ -185,10 +362,19 @@ fn test_add_fund_and_claim() {
     let user2_cum_salary = salary_dispatcher.get_cum_salary(user2());
     assert(user2_cum_salary == user2_expected_cum_salary,'incorrect user2 cum salary');
 
+    let mut spy = spy_events(SpyOn::One(salary_address));
     // claiming the salary
     start_prank(salary_address, user1());
     salary_dispatcher.claim_salary(user1());
     stop_prank(salary_address);
+
+    let mut event_data1 = Default::default();
+    Serde::serialize(@user1_expected_cum_salary, ref event_data1);
+    Serde::serialize(@user1(), ref event_data1);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryClaimed', keys: array![], data: event_data1 }
+    ]);
+
 
     // verfying tokens transfered successful
     let user1_balance = usdc_dispatcher.balance_of(user1());
@@ -198,10 +384,18 @@ fn test_add_fund_and_claim() {
     let user1_claimed_salary = salary_dispatcher.get_claimed_salary(user1());
     assert(user1_claimed_salary == user1_expected_cum_salary, 'incorrect claimed amount');
 
+    let mut spy = spy_events(SpyOn::One(salary_address));
     // claiming the salary to differnt account
     start_prank(salary_address, user2());
     salary_dispatcher.claim_salary(user3());
     stop_prank(salary_address);
+
+    let mut event_data2 = Default::default();
+    Serde::serialize(@user2_expected_cum_salary, ref event_data2);
+    Serde::serialize(@user3(), ref event_data2);
+    spy.assert_emitted(@array![
+        Event { from: salary_address, name: 'SalaryClaimed', keys: array![], data: event_data2 }
+    ]);
 
     // verfying tokens transfered successful
     let user3_balance = usdc_dispatcher.balance_of(user3());
