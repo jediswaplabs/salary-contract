@@ -100,13 +100,6 @@ mod SalaryDistributor {
         _last_update_month_id_contributor: LegacyMap::<ContractAddress, u32>, // @dev to avoid unnecessary calculation of cum_salary
         _last_update_month_id: u32, // @dev to avoid unnecessary calculation of cum_salary
         _master: ContractAddress, // @dev master contract address
-        // _dev_guild_SBT: ContractAddress, // @dev contract address for dev guild SBTs
-        // _design_guild_SBT: ContractAddress, // @dev contract address for design guild guild SBTs
-        // _marcom_guild_SBT: ContractAddress, // @dev contract address for marcom guild SBTs
-        // _problem_solving_guild_SBT: ContractAddress, // @dev contract address for problem solving guild SBTs
-        // _research_guild_SBT: ContractAddress, // @dev contract address for research guild SBTs
-        // _initialised: bool, // @dev Flag to store initialisation state
-        // _queued_migrations: LegacyMap::<felt252, bool>, // @dev flag to store queued migration requests.
     }
 
     #[event]

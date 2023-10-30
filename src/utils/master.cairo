@@ -85,6 +85,7 @@ trait IMaster<TContractState> {
     fn get_total_contribution(self: @TContractState, month_id: u32) -> TotalMonthlyContribution;
     fn get_contributions_data(self: @TContractState, contributor: ContractAddress, guild: felt252) -> Array<u32>;
     fn get_guild_total_contribution(self: @TContractState, month_id: u32, guild: felt252) -> u32;
+    fn get_guild_contribution_for_month(self: @TContractState, contributor: ContractAddress, month_id: u32, guild: felt252) -> u32;
 
 
     // external functions
@@ -246,6 +247,22 @@ mod Master {
             else {
                 0
             }  
+        }
+
+        fn get_guild_contribution_for_month(self: @ContractState, contributor: ContractAddress, month_id: u32, guild: felt252) -> u32 {
+            let contribution_data = self._contributions_data.read((contributor, guild));
+            let mut current_index = contribution_data.len();
+            let point = loop {
+                if (current_index == 0) {
+                    break 0;
+                }
+                if(month_id == *contribution_data[current_index - 2]) {
+                    break *contribution_data[current_index - 1];
+                }
+
+                current_index -= 2;
+            };
+            point
         }
 
         fn get_last_update_id(self: @ContractState) -> u32 {
