@@ -1,5 +1,5 @@
 mod erc20;
 mod master;
-mod guildSBT;
+mod guilds;
 mod array;
 mod storage;

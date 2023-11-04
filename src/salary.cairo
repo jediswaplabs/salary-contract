@@ -29,10 +29,6 @@ trait IERC20<T> {
     ) -> bool; // TODO Remove after regenesis
 }
 
-#[starknet::interface]
-trait IGuild<T> {
-    fn get_contribution_tier(self: @T, contributor: ContractAddress) -> u32;
-}
 
 #[starknet::interface]
 trait IMaster<T> {
@@ -71,9 +67,8 @@ mod SalaryDistributor {
     use traits::Into; // TODO remove intos when u256 inferred type is available
     use option::OptionTrait;
     use array::ArrayTrait;
-    use salary::utils::erc20::ERC20;
-    use salary::utils::master::Master;
-    use salary::utils::guildSBT::GuildSBT;
+    // use salary::utils::erc20::ERC20;
+    // use salary::utils::master::Master;
     use salary::access::ownable::{Ownable, IOwnable};
     use salary::access::ownable::Ownable::{
         ModifierTrait as OwnableModifierTrait, InternalTrait as OwnableInternalTrait,
@@ -83,7 +78,7 @@ mod SalaryDistributor {
     use super::Salary;
 
     use super::{
-        IERC20Dispatcher, IERC20DispatcherTrait, IGuildDispatcher, IGuildDispatcherTrait, IMasterDispatcher, IMasterDispatcherTrait
+        IERC20Dispatcher, IERC20DispatcherTrait, IMasterDispatcher, IMasterDispatcherTrait
     };
 
     // for debugging will remove after review

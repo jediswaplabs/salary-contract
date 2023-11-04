@@ -16,7 +16,7 @@ trait IMaster<T> {
 // Contract Interface
 //
 #[starknet::interface]
-trait IGuildSBT<TContractState> {
+trait IResearchGuildSBT<TContractState> {
     // view functions
     fn tokenURI(self: @TContractState, token_id: u256) -> Span<felt252>;
     fn tokenURI_from_contributor(self: @TContractState, contributor: ContractAddress) -> Span<felt252>;
@@ -38,7 +38,7 @@ trait IGuildSBT<TContractState> {
 }
 
 #[starknet::contract]
-mod GuildSBT {
+mod ResearchGuildSBT {
 
     use option::OptionTrait;
     // use traits::Into;
@@ -104,7 +104,7 @@ mod GuildSBT {
     }
 
     #[external(v0)]
-    impl GuildSBT of super::IGuildSBT<ContractState> {
+    impl ResearchGuildSBT of super::IResearchGuildSBT<ContractState> {
         //
         // Getters
         //
@@ -113,8 +113,8 @@ mod GuildSBT {
             let owner = erc721_self.owner_of(:token_id);
             let master = self._master.read();
             let masterDispatcher = IMasterDispatcher { contract_address: master };
-            // @notice this is a sample SBT contract for dev guild, update the next line before deploying other guild
-            let points = masterDispatcher.get_guild_points(owner, 'dev');
+            // @notice this is a sample SBT contract for research guild, update the next line before deploying other guild
+            let points = masterDispatcher.get_guild_points(owner, 'research');
             let token_type = self._token_type.read(owner);
 
             let tier = InternalImpl::_get_contribution_tier(self, points);
@@ -128,8 +128,8 @@ mod GuildSBT {
         fn tokenURI_from_contributor(self: @ContractState, contributor: ContractAddress) -> Span<felt252> {
             let master = self._master.read();
             let masterDispatcher = IMasterDispatcher { contract_address: master };
-            // @notice this is a sample SBT contract for dev guild, update the next line before deploying other guild
-            let points = masterDispatcher.get_guild_points(contributor, 'dev');
+            // @notice this is a sample SBT contract for research guild, update the next line before deploying other guild
+            let points = masterDispatcher.get_guild_points(contributor, 'research');
             let token_type = self._token_type.read(contributor);
 
             let tier = InternalImpl::_get_contribution_tier(self, points);
@@ -151,7 +151,7 @@ mod GuildSBT {
         fn get_contribution_tier(self: @ContractState, contributor: ContractAddress) -> u32 {
             let master = self._master.read();
             let masterDispatcher = IMasterDispatcher { contract_address: master };
-            let points = masterDispatcher.get_guild_points(contributor, 'dev');
+            let points = masterDispatcher.get_guild_points(contributor, 'research');
             InternalImpl::_get_contribution_tier(self, points)
         }
 
@@ -201,7 +201,7 @@ mod GuildSBT {
 
             let master = self._master.read();
             let masterDispatcher = IMasterDispatcher { contract_address: master };
-            let points = masterDispatcher.get_guild_points(account, 'dev');
+            let points = masterDispatcher.get_guild_points(account, 'research');
             let tier = InternalImpl::_get_contribution_tier(@self, points);
 
             assert (tier != 0, 'NOT_ENOUGH_POINTS');
