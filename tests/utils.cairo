@@ -35,3 +35,29 @@ fn USDC() -> ContractAddress {
 fn MASTER() -> ContractAddress {
     contract_address_try_from_felt252('master').unwrap()
 }
+
+fn MOCK_GUILD1() -> ContractAddress {
+    contract_address_try_from_felt252('guild1').unwrap()
+}
+fn MOCK_GUILD2() -> ContractAddress {
+    contract_address_try_from_felt252('guild2').unwrap()
+}
+fn MOCK_GUILD3() -> ContractAddress {
+    contract_address_try_from_felt252('guild3').unwrap()
+}
+fn MOCK_GUILD4() -> ContractAddress {
+    contract_address_try_from_felt252('guild4').unwrap()
+}
+fn MOCK_GUILD5() -> ContractAddress {
+    contract_address_try_from_felt252('guild5').unwrap()
+}
+
+fn URI() -> Span<felt252> {
+    let mut uri = ArrayTrait::new();
+
+    uri.append('api.jediswap/');
+    uri.append('guildSBT/');
+    uri.append('dev/');
+
+    uri.span()
+}
