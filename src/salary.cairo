@@ -51,10 +51,13 @@ trait ISalaryDistributor<TContractState> {
     fn master(self: @TContractState) -> ContractAddress;
     fn get_cum_salary(self: @TContractState, contributor: ContractAddress) -> u256;
     fn get_claimed_salary(self: @TContractState, contributor: ContractAddress) -> u256;
+    fn get_pool_amount(self: @TContractState, month_id: u32, guild: felt252) -> u256;
+    fn get_last_update_month_id(self: @TContractState) -> u32;
     // fn get_cum_salarys(self: @TContractState, contributor: ContractAddress);
 
 
     // external functions
+    fn update_master(ref self: TContractState, new_master: ContractAddress);
     fn add_fund_to_salary_pools(ref self: TContractState, month_id: u32, amounts: Array<u256>, guilds: Array<felt252>);
     fn update_cum_salary(ref self: TContractState, contributor: ContractAddress);
     fn claim_salary(ref self: TContractState, recipient: ContractAddress);
@@ -100,8 +103,23 @@ mod SalaryDistributor {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
+        MasterUpdated: MasterUpdated,
+        CumulativeSalaryUpdated: CumulativeSalaryUpdated,
         SalaryPoolUpdated: SalaryPoolUpdated,
         SalaryClaimed: SalaryClaimed,
+    }
+
+    // @notice An event emitted whenever master contract is updated
+    #[derive(Drop, starknet::Event)]
+    struct MasterUpdated {
+        new_master: ContractAddress
+    }
+
+    // @notice An event emitted whenever contributor cum salary is updated
+    #[derive(Drop, starknet::Event)]
+    struct CumulativeSalaryUpdated {
+        month_id: u32,
+        cum_salary: u256
     }
 
     // @notice An event emitted whenever funds are added to salary pool.
@@ -153,6 +171,14 @@ mod SalaryDistributor {
         fn get_claimed_salary(self: @ContractState, contributor: ContractAddress) -> u256 {
             self._salary.read(contributor).claimed_salary
         }
+
+        fn get_pool_amount(self: @ContractState, month_id: u32, guild: felt252) -> u256 {
+            self._salary_pool.read((month_id, guild))
+        }
+
+        fn get_last_update_month_id(self: @ContractState) -> u32 {
+            self._last_update_month_id.read()
+        }
         // for debugging will remove after review
         // fn get_cum_salarys(self: @ContractState, contributor: ContractAddress){
         //     InternalImpl::get_guild_cum_salarys(self, contributor, 'dev');
@@ -165,6 +191,13 @@ mod SalaryDistributor {
         //
         // Setters
         //
+
+        fn update_master(ref self: ContractState, new_master: ContractAddress) {
+            self._only_owner();
+            self._master.write(new_master);
+            self.emit(MasterUpdated{new_master: new_master});
+
+        }
 
         fn add_fund_to_salary_pools(ref self: ContractState, month_id: u32, amounts: Array<u256>, guilds: Array<felt252>) {
             self._only_owner();
@@ -201,6 +234,7 @@ mod SalaryDistributor {
             let cum_salary = InternalImpl::_calculate_cum_salary(@self, contributor);
             let old_salary = self._salary.read(contributor);
             self._salary.write(contributor, Salary{cum_salary: cum_salary, claimed_salary: old_salary.claimed_salary });
+            self.emit(CumulativeSalaryUpdated{month_id: last_update_month_id_contributor, cum_salary: cum_salary});
             self._last_update_month_id_contributor.write(contributor, last_update_month_id);
         }
 
@@ -229,23 +263,22 @@ mod SalaryDistributor {
 
         fn _calculate_cum_salary(self: @ContractState, contributor: ContractAddress) -> u256 {
             let mut cum_salary = 0_u256;
-            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'dev');
-            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'design');
-            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'problem_solving');
-            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'marcom');
-            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'research');
+            let master = self._master.read();
+            let masterDispatcher = IMasterDispatcher { contract_address: master };
+            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'dev', masterDispatcher);
+            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'design', masterDispatcher);
+            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'problem_solving', masterDispatcher);
+            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'marcom', masterDispatcher);
+            cum_salary += InternalImpl::_calculate_guild_cum_salary(self, contributor, 'research', masterDispatcher);
 
             cum_salary
         }
 
-        fn _calculate_guild_cum_salary(self: @ContractState, contributor: ContractAddress, guild: felt252) -> u256 {
-            let master = self._master.read();
-            let masterDispatcher = IMasterDispatcher { contract_address: master };
+        fn _calculate_guild_cum_salary(self: @ContractState, contributor: ContractAddress, guild: felt252, masterDispatcher: IMasterDispatcher) -> u256 {
+            
             let contribution_data = masterDispatcher.get_contributions_data(contributor, guild);
 
             let mut cum_salary = 0_u256;
-            let mut cum_salarys: Array<u256> = ArrayTrait::new();
-
             let mut current_index = 0_u32;
             loop {
                 if (current_index == contribution_data.len()) {
@@ -256,7 +289,6 @@ mod SalaryDistributor {
                 let total_contribution: u256 = masterDispatcher.get_guild_total_contribution(*contribution_data[current_index], guild).into();
                 let contributor_point_earned: u256 = (*contribution_data[current_index + 1]).into();
                 cum_salary += (pool_amount * contributor_point_earned) / total_contribution;
-                cum_salarys.append((pool_amount * contributor_point_earned) / total_contribution);
                 current_index += 2;
 
             };

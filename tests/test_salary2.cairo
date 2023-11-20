@@ -7,8 +7,8 @@ use option::OptionTrait;
 use snforge_std::{ declare, ContractClassTrait, ContractClass, start_warp, start_prank, stop_prank,
                    spy_events, SpyOn, EventSpy, EventFetcher, Event, EventAssertions };
 use tests::utils::{ deployer_addr, user1, user2, user3, USDC, TOKEN_MULTIPLIER, URI};
-use salary::utils::master::MonthlyContribution;
-use salary::utils::master::Contribution;
+use salary::test::master::MonthlyContribution;
+use salary::test::master::Contribution;
 use integer::u256_from_felt252;
 // use snforge_std::PrintTrait;
 

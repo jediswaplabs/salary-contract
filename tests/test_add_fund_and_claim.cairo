@@ -7,9 +7,27 @@ use option::OptionTrait;
 use snforge_std::{ declare, ContractClassTrait, ContractClass, start_warp, start_prank, stop_prank,
                    spy_events, SpyOn, EventSpy, EventFetcher, Event, EventAssertions };
 use tests::utils::{ deployer_addr, user1, user2, user3, USDC, TOKEN_MULTIPLIER};
-use salary::utils::master::MonthlyContribution;
-use salary::utils::master::Contribution;
+use salary::test::master::MonthlyContribution;
+use salary::test::master::Contribution;
 use integer::u256_from_felt252;
+
+const DEV_GUILD: felt252 = 'dev';
+const DESIGN_GUILD: felt252 = 'design';
+const PROBLEM_SOLVING_GUILD: felt252 = 'problem_solving';
+const MARCOM_GUILD: felt252 = 'marcom';
+const RESEARCH_GUILD: felt252 = 'research';
+
+const dev_fund_sept: u256 = 10000000000000000000; //10 * 1000000000000000000; // 10 * TOKEN_MULTIPLIER;(Comment expression not supported)
+const design_fund_sept: u256 =  20000000000000000000; //20 * TOKEN_MULTIPLIER;
+const problem_solving_fund_sept: u256 = 30000000000000000000; //30 * TOKEN_MULTIPLIER;
+const marcom_fund_sept: u256 = 40000000000000000000; //40 * TOKEN_MULTIPLIER;
+const research_fund_sept: u256 = 50000000000000000000; //50 * TOKEN_MULTIPLIER;
+
+const dev_fund_oct: u256 = 50000000000000000000; //50 * TOKEN_MULTIPLIER;
+const design_fund_oct: u256 = 40000000000000000000; //40 * TOKEN_MULTIPLIER;
+const problem_solving_fund_oct: u256 = 30000000000000000000; //30 * TOKEN_MULTIPLIER;
+const marcom_fund_oct: u256 = 20000000000000000000; //20 * TOKEN_MULTIPLIER;
+const research_fund_oct: u256 = 10000000000000000000; //10 * TOKEN_MULTIPLIER;
 
 
 
@@ -34,6 +52,8 @@ trait ISalary<TContractState> {
     fn get_cum_salary(self: @TContractState, contributor: ContractAddress) -> u256;
     fn get_claimed_salary(self: @TContractState, contributor: ContractAddress) -> u256;
     fn get_cum_salarys(self: @TContractState, contributor: ContractAddress);
+    fn get_pool_amount(self: @TContractState, month_id: u32, guild: felt252) -> u256;
+    fn get_last_update_month_id(self: @TContractState) -> u32;
 
     fn add_fund_to_salary_pools(ref self: TContractState, month_id: u32, amounts: Array<u256>, guilds: Array<felt252>);
     fn claim_salary(ref self: TContractState, recipient: ContractAddress);
@@ -126,18 +146,18 @@ fn test_add_fund() {
     let usdc_dispatcher = IERC20Dispatcher { contract_address: usdc };
 
     let mut guilds: Array<felt252> = ArrayTrait::new();
-    guilds.append('dev');
-    guilds.append('design');
-    guilds.append('problem_solving');
-    guilds.append('marcom');
-    guilds.append('research');
+    guilds.append(DEV_GUILD);
+    guilds.append(DESIGN_GUILD);
+    guilds.append(PROBLEM_SOLVING_GUILD);
+    guilds.append(MARCOM_GUILD);
+    guilds.append(RESEARCH_GUILD);
 
     let mut amounts: Array<u256> = ArrayTrait::new();
-    amounts.append(10 * TOKEN_MULTIPLIER);
-    amounts.append(20 * TOKEN_MULTIPLIER);
-    amounts.append(30 * TOKEN_MULTIPLIER);
-    amounts.append(40 * TOKEN_MULTIPLIER);
-    amounts.append(50 * TOKEN_MULTIPLIER);
+    amounts.append(dev_fund_sept);
+    amounts.append(design_fund_sept);
+    amounts.append(problem_solving_fund_sept);
+    amounts.append(marcom_fund_sept);
+    amounts.append(research_fund_sept);
 
     start_prank(usdc, deployer_addr());
     usdc_dispatcher.approve(salary_address, 150 * TOKEN_MULTIPLIER);
@@ -154,57 +174,67 @@ fn test_add_fund() {
     let contract_balance = usdc_dispatcher.balance_of(salary_address);
     assert(contract_balance == 150 * TOKEN_MULTIPLIER, 'incorrect balance');
 
-    // defining variables to check in events emitted
-    let dev_guild = 'dev';
-    let dev_fund = 10 * TOKEN_MULTIPLIER;
-    let design_guild = 'design';
-    let design_fund = 20 * TOKEN_MULTIPLIER;
-    let problem_solving_guild = 'problem_solving';
-    let problem_solving_fund = 30 * TOKEN_MULTIPLIER;
-    let marcom_guild = 'marcom';
-    let marcom_fund = 40 * TOKEN_MULTIPLIER;
-    let research_guild = 'research';
-    let research_fund = 50 * TOKEN_MULTIPLIER;
+    // verifying if salary pool is updated correctly.
+    let dev_pool = salary_dispatcher.get_pool_amount(month_id, DEV_GUILD);
+    assert(dev_pool == dev_fund_sept, 'Incorrect dev pool');
+
+    let design_pool = salary_dispatcher.get_pool_amount(month_id, DESIGN_GUILD);
+    assert(design_pool == design_fund_sept, 'Incorrect design pool');
+
+    let problem_solving_pool = salary_dispatcher.get_pool_amount(month_id, PROBLEM_SOLVING_GUILD);
+    assert(problem_solving_pool == problem_solving_fund_sept, 'Incorrect problem_solving pool');
+
+    let marcom_pool = salary_dispatcher.get_pool_amount(month_id, MARCOM_GUILD);
+    assert(marcom_pool == marcom_fund_sept, 'Incorrect marcom pool');
+
+    let research_pool = salary_dispatcher.get_pool_amount(month_id, RESEARCH_GUILD);
+    assert(research_pool == research_fund_sept, 'Incorrect research pool');
+
+    let last_update_month_id = salary_dispatcher.get_last_update_month_id();
+    assert(last_update_month_id == month_id, 'incorrect month id');
+
 
     let mut event_data_dev = Default::default();
     Serde::serialize(@month_id, ref event_data_dev);
-    Serde::serialize(@dev_guild, ref event_data_dev);
-    Serde::serialize(@dev_fund, ref event_data_dev);
+    Serde::serialize(@DEV_GUILD, ref event_data_dev);
+    Serde::serialize(@dev_fund_sept, ref event_data_dev);
     spy.assert_emitted(@array![
         Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_dev }
     ]);
 
     let mut event_data_design = Default::default();
     Serde::serialize(@month_id, ref event_data_design);
-    Serde::serialize(@design_guild, ref event_data_design);
-    Serde::serialize(@design_fund, ref event_data_design);
+    Serde::serialize(@DESIGN_GUILD, ref event_data_design);
+    Serde::serialize(@design_fund_sept, ref event_data_design);
     spy.assert_emitted(@array![
         Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_design }
     ]);
 
     let mut event_data_problem_solving = Default::default();
     Serde::serialize(@month_id, ref event_data_problem_solving);
-    Serde::serialize(@problem_solving_guild, ref event_data_problem_solving);
-    Serde::serialize(@problem_solving_fund, ref event_data_problem_solving);
+    Serde::serialize(@PROBLEM_SOLVING_GUILD, ref event_data_problem_solving);
+    Serde::serialize(@problem_solving_fund_sept, ref event_data_problem_solving);
     spy.assert_emitted(@array![
         Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_problem_solving }
     ]);
 
     let mut event_data_marcom = Default::default();
     Serde::serialize(@month_id, ref event_data_marcom);
-    Serde::serialize(@marcom_guild, ref event_data_marcom);
-    Serde::serialize(@marcom_fund, ref event_data_marcom);
+    Serde::serialize(@MARCOM_GUILD, ref event_data_marcom);
+    Serde::serialize(@marcom_fund_sept, ref event_data_marcom);
     spy.assert_emitted(@array![
         Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_marcom }
     ]);
 
     let mut event_data_research = Default::default();
     Serde::serialize(@month_id, ref event_data_research);
-    Serde::serialize(@research_guild, ref event_data_research);
-    Serde::serialize(@research_fund, ref event_data_research);
+    Serde::serialize(@RESEARCH_GUILD, ref event_data_research);
+    Serde::serialize(@research_fund_sept, ref event_data_research);
     spy.assert_emitted(@array![
         Event { from: salary_address, name: 'SalaryPoolUpdated', keys: array![], data: event_data_research }
     ]);
+
+
 
 }
 
@@ -218,23 +248,23 @@ fn test_add_fund_same_month_new_guild() {
     let usdc_dispatcher = IERC20Dispatcher { contract_address: usdc };
 
     let mut guilds: Array<felt252> = ArrayTrait::new();
-    guilds.append('dev');
-    guilds.append('design');
-    guilds.append('problem_solving');
-    guilds.append('marcom');
+    guilds.append(DEV_GUILD);
+    guilds.append(DESIGN_GUILD);
+    guilds.append(PROBLEM_SOLVING_GUILD);
+    guilds.append(MARCOM_GUILD);
 
     let mut amounts1: Array<u256> = ArrayTrait::new();
-    amounts1.append(10 * TOKEN_MULTIPLIER);
-    amounts1.append(20 * TOKEN_MULTIPLIER);
-    amounts1.append(30 * TOKEN_MULTIPLIER);
-    amounts1.append(40 * TOKEN_MULTIPLIER);
+    amounts1.append(dev_fund_sept);
+    amounts1.append(design_fund_sept);
+    amounts1.append(problem_solving_fund_sept);
+    amounts1.append(marcom_fund_sept);
 
 
     let mut guilds2: Array<felt252> = ArrayTrait::new();
-    guilds2.append('research');
+    guilds2.append(RESEARCH_GUILD);
 
     let mut amounts2: Array<u256> = ArrayTrait::new();
-    amounts2.append(50 * TOKEN_MULTIPLIER);
+    amounts2.append(research_fund_sept);
 
     start_prank(usdc, deployer_addr());
     usdc_dispatcher.approve(salary_address, 150 * TOKEN_MULTIPLIER);
@@ -258,21 +288,21 @@ fn test_add_fund_again_should_revert() {
     let usdc_dispatcher = IERC20Dispatcher { contract_address: usdc };
 
     let mut guilds: Array<felt252> = ArrayTrait::new();
-    guilds.append('dev');
-    guilds.append('design');
-    guilds.append('problem_solving');
-    guilds.append('marcom');
-    guilds.append('research');
+    guilds.append(DEV_GUILD);
+    guilds.append(DESIGN_GUILD);
+    guilds.append(PROBLEM_SOLVING_GUILD);
+    guilds.append(MARCOM_GUILD);
+    guilds.append(RESEARCH_GUILD);
 
     let mut amounts1: Array<u256> = ArrayTrait::new();
-    amounts1.append(10 * TOKEN_MULTIPLIER);
-    amounts1.append(20 * TOKEN_MULTIPLIER);
-    amounts1.append(30 * TOKEN_MULTIPLIER);
-    amounts1.append(40 * TOKEN_MULTIPLIER);
-    amounts1.append(50 * TOKEN_MULTIPLIER);
+    amounts1.append(dev_fund_sept);
+    amounts1.append(design_fund_sept);
+    amounts1.append(problem_solving_fund_sept);
+    amounts1.append(marcom_fund_sept);
+    amounts1.append(research_fund_sept);
 
     let mut guilds2: Array<felt252> = ArrayTrait::new();
-    guilds2.append('research');
+    guilds2.append(RESEARCH_GUILD);
 
     let mut amounts2: Array<u256> = ArrayTrait::new();
     amounts2.append(40 * TOKEN_MULTIPLIER);
@@ -295,6 +325,38 @@ fn test_add_fund_again_should_revert() {
 }
 
 #[test]
+fn test_add_fund_length_mismatch() { 
+    let initial_supply: u256 = 1000 * TOKEN_MULTIPLIER;
+    let usdc = deploy_mockUSDC(initial_supply);
+    let (master_address, salary_address) = deploy_contracts(usdc);
+
+    let safe_salary_dispatcher = ISalarySafeDispatcher { contract_address: salary_address };
+
+    let mut guilds: Array<felt252> = ArrayTrait::new();
+    guilds.append(DEV_GUILD);
+    guilds.append(DESIGN_GUILD);
+    guilds.append(PROBLEM_SOLVING_GUILD);
+    guilds.append(MARCOM_GUILD);
+    guilds.append(RESEARCH_GUILD);
+
+    let mut amounts: Array<u256> = ArrayTrait::new();
+    amounts.append(dev_fund_sept);
+    amounts.append(design_fund_sept);
+    amounts.append(problem_solving_fund_sept);
+    amounts.append(marcom_fund_sept);
+
+    let month_id = 092023;
+    start_prank(salary_address, deployer_addr());
+    match safe_salary_dispatcher.add_fund_to_salary_pools(month_id, amounts, guilds) {
+        Result::Ok(_) => panic_with_felt252('shouldve panicked'),
+        Result::Err(panic_data) => {
+            assert(*panic_data.at(0) == 'INVALID_INPUT', *panic_data.at(0));
+        }
+    };
+    stop_prank(salary_address);
+}
+
+#[test]
 fn test_add_fund_and_claim() { 
     let initial_supply: u256 = 1000 * TOKEN_MULTIPLIER;
     let usdc = deploy_mockUSDC(initial_supply);
@@ -308,24 +370,24 @@ fn test_add_fund_and_claim() {
     let safe_salary_dispatcher = ISalarySafeDispatcher { contract_address: salary_address };
 
     let mut guilds: Array<felt252> = ArrayTrait::new();
-    guilds.append('dev');
-    guilds.append('design');
-    guilds.append('problem_solving');
-    guilds.append('marcom');
-    guilds.append('research');
+    guilds.append(DEV_GUILD);
+    guilds.append(DESIGN_GUILD);
+    guilds.append(PROBLEM_SOLVING_GUILD);
+    guilds.append(MARCOM_GUILD);
+    guilds.append(RESEARCH_GUILD);
 
     let mut amounts1: Array<u256> = ArrayTrait::new();
-    amounts1.append(10 * TOKEN_MULTIPLIER);
-    amounts1.append(20 * TOKEN_MULTIPLIER);
-    amounts1.append(30 * TOKEN_MULTIPLIER);
-    amounts1.append(40 * TOKEN_MULTIPLIER);
-    amounts1.append(50 * TOKEN_MULTIPLIER);
+    amounts1.append(dev_fund_sept);
+    amounts1.append(design_fund_sept);
+    amounts1.append(problem_solving_fund_sept);
+    amounts1.append(marcom_fund_sept);
+    amounts1.append(research_fund_sept);
 
     let mut amounts2: Array<u256> = ArrayTrait::new();
-    amounts2.append(50 * TOKEN_MULTIPLIER);
-    amounts2.append(40 * TOKEN_MULTIPLIER);
-    amounts2.append(30 * TOKEN_MULTIPLIER);
-    amounts2.append(20 * TOKEN_MULTIPLIER);
+    amounts2.append(dev_fund_oct);
+    amounts2.append(design_fund_oct);
+    amounts2.append(problem_solving_fund_oct);
+    amounts2.append(marcom_fund_oct);
     amounts2.append(10 * TOKEN_MULTIPLIER);
    
 
@@ -343,17 +405,17 @@ fn test_add_fund_and_claim() {
     let contract_balance = usdc_dispatcher.balance_of(salary_address);
     assert(contract_balance == 300 * TOKEN_MULTIPLIER, 'incorrect balance');
 
-    let user1_expected_cum_salary = (120 * 10 * TOKEN_MULTIPLIER / 320) + (150 * 50 * TOKEN_MULTIPLIER / 250) + 
-                                    (250 * 20 * TOKEN_MULTIPLIER / 400) + (20 * 40 * TOKEN_MULTIPLIER / 20) +
-                                    (30 * 30 * TOKEN_MULTIPLIER / 30) + (45 * 30 * TOKEN_MULTIPLIER / 100) +
-                                    (20 * 40 * TOKEN_MULTIPLIER / 120) + (0 * 20 * TOKEN_MULTIPLIER / 50) +
-                                    (10 * 50 * TOKEN_MULTIPLIER / 80) + (35 * 10 * TOKEN_MULTIPLIER / 125);
+    let user1_expected_cum_salary = (120 * dev_fund_sept / 320) + (150 * dev_fund_oct / 250) + 
+                                    (250 * design_fund_sept / 400) + (20 * design_fund_oct / 20) +
+                                    (30 * problem_solving_fund_sept / 30) + (45 * problem_solving_fund_oct / 100) +
+                                    (20 * marcom_fund_sept / 120) + (0 * marcom_fund_oct / 50) +
+                                    (10 * research_fund_sept / 80) + (35 * research_fund_oct / 125);
 
-    let user2_expected_cum_salary = (200 * 10 * TOKEN_MULTIPLIER / 320) + (100 * 50 * TOKEN_MULTIPLIER / 250) + 
-                                    (150 * 20 * TOKEN_MULTIPLIER / 400) + (0 * 40 * TOKEN_MULTIPLIER / 20) +
-                                    (0 * 30 * TOKEN_MULTIPLIER / 30) + (55 * 30 * TOKEN_MULTIPLIER / 100) +
-                                    (100 * 40 * TOKEN_MULTIPLIER / 120) + (50 * 20 * TOKEN_MULTIPLIER / 50) +
-                                    (70 * 50 * TOKEN_MULTIPLIER / 80) + (90 * 10 * TOKEN_MULTIPLIER / 125);
+    let user2_expected_cum_salary = (200 * dev_fund_sept / 320) + (100 * dev_fund_oct / 250) + 
+                                    (150 * design_fund_sept / 400) + (0 * design_fund_oct / 20) +
+                                    (0 * problem_solving_fund_sept / 30) + (55 * problem_solving_fund_oct / 100) +
+                                    (100 * marcom_fund_sept / 120) + (50 * marcom_fund_oct / 50) +
+                                    (70 * research_fund_sept / 80) + (90 * research_fund_oct / 125);
     
     
     let user1_cum_salary = salary_dispatcher.get_cum_salary(user1());
@@ -380,6 +442,9 @@ fn test_add_fund_and_claim() {
     let user1_balance = usdc_dispatcher.balance_of(user1());
     assert(user1_balance == user1_expected_cum_salary, 'incorrect user1 balance');
 
+    let contract_balance_after_user1_claimed = usdc_dispatcher.balance_of(salary_address);
+    assert(contract_balance_after_user1_claimed == contract_balance - user1_expected_cum_salary, 'incorrect contract balance');
+
     // verifying claimed_salary is updated
     let user1_claimed_salary = salary_dispatcher.get_claimed_salary(user1());
     assert(user1_claimed_salary == user1_expected_cum_salary, 'incorrect claimed amount');
@@ -400,6 +465,9 @@ fn test_add_fund_and_claim() {
     // verfying tokens transfered successful
     let user3_balance = usdc_dispatcher.balance_of(user3());
     assert(user3_balance == user2_expected_cum_salary, 'incorrect user3 balance');
+
+    let contract_balance_after_user2_claimed = usdc_dispatcher.balance_of(salary_address);
+    assert(contract_balance_after_user2_claimed == contract_balance_after_user1_claimed - user2_expected_cum_salary, 'incorrect contract balance');
 
     // verifying claimed_salary is updated
     let user2_claimed_salary = salary_dispatcher.get_claimed_salary(user2());
