@@ -70,8 +70,6 @@ mod SalaryDistributor {
     use traits::Into; // TODO remove intos when u256 inferred type is available
     use option::OptionTrait;
     use array::ArrayTrait;
-    // use salary::utils::erc20::ERC20;
-    // use salary::utils::master::Master;
     use salary::access::ownable::{Ownable, IOwnable};
     use salary::access::ownable::Ownable::{
         ModifierTrait as OwnableModifierTrait, InternalTrait as OwnableInternalTrait,
